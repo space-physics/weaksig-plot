@@ -34,10 +34,11 @@ def wsprstrip(dat, callsign:str, band:int):
 
     cats = cut(dat['distkm'], bins)
     #dat['range_bins'] = cats
+    dat,hcats = cathour(dat)
 
     ax = figure().gca()
 
-    sns.stripplot(x=cats,y='snr',data=dat, jitter=True, ax=ax)
+    sns.stripplot(x=cats,y='snr', hue=hcats, data=dat, jitter=True, ax=ax)
     ax.set_title(f'SNR [dB] vs. distance [km] for {callsign} on {band} MHz')
 
 def plottime(dat,callsign,band):
@@ -56,15 +57,19 @@ def plottime(dat,callsign,band):
         if cdat.shape[0] < 3 or distkm>250: # if not many data points, skip plotting, or if too far for NVIS
             continue
 
-        cdat['t'] = [datetime.utcfromtimestamp(u) for u in cdat['tut']]
-        cdat['hod'] = [r.hour for r in cdat.t]
-        bins = range(24) # hours of day
-        cats = cut(cdat['hod'],bins)
-
+        cdat, hcats = cathour(cdat)
 
         ax = figure().gca()
-        sns.stripplot(x=cats,y='snr',data=cdat,jitter=True,ax=ax)
+        sns.stripplot(x=hcats,y='snr',data=cdat,jitter=True,ax=ax)
         ax.set_title(f'SNR [dB] vs. time [UTC] for {c} on {band} MHz, distance {distkm} km.' )
         #ax.set_title(f'SNR vs. Time for {c}')
         #ax.set_xlabel('time UTC')
         #ax.set_ylabel('SNR [dB]')
+
+def cathour(dat):
+    dat['t'] = [datetime.utcfromtimestamp(u) for u in dat['tut']]
+    dat['hod'] = [r.hour for r in dat.t]
+    bins = range(0,24,3) # hours of day
+    cats = cut(dat['hod'],bins)
+
+    return dat,cats
