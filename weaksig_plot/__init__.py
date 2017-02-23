@@ -1,5 +1,6 @@
 from pathlib import Path
 from datetime import datetime
+from pytz import timezone
 from numpy import in1d
 from pandas import read_csv,DataFrame,cut
 from matplotlib.pyplot import figure
@@ -38,7 +39,7 @@ def wsprstrip(dat, callsign:str, band:int):
 
     ax = figure().gca()
 
-    sns.stripplot(x=cats,y='snr', hue=hcats, data=dat, jitter=True, ax=ax)
+    sns.swarmplot(x=cats,y='snr', hue=hcats, data=dat, ax=ax)
     ax.set_title(f'SNR [dB] vs. distance [km] for {callsign} on {band} MHz')
 
 def plottime(dat,callsign,band):
@@ -61,15 +62,12 @@ def plottime(dat,callsign,band):
 
         ax = figure().gca()
         sns.stripplot(x=hcats,y='snr',data=cdat,jitter=True,ax=ax)
-        ax.set_title(f'SNR [dB] vs. time [UTC] for {c} on {band} MHz, distance {distkm} km.' )
-        #ax.set_title(f'SNR vs. Time for {c}')
-        #ax.set_xlabel('time UTC')
-        #ax.set_ylabel('SNR [dB]')
+        ax.set_title(f'SNR [dB] vs. time [local] for {c} on {band} MHz, distance {distkm} km.' )
 
 def cathour(dat):
-    dat['t'] = [datetime.utcfromtimestamp(u) for u in dat['tut']]
+    dat['t'] = [datetime.utcfromtimestamp(u).astimezone(timezone('US/Eastern')) for u in dat['tut']]
     dat['hod'] = [r.hour for r in dat.t]
-    bins = range(0,24,3) # hours of day
+    bins = range(0,24+3,3) # hours of day
     cats = cut(dat['hod'],bins)
 
     return dat,cats

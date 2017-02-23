@@ -14,7 +14,7 @@ def wsprplots(dat,callsign,freq):
     for f in freq:
         wsprstrip(dat,callsign, f)
 
-    plottime(dat,callsign,freq[1])
+    #plottime(dat,callsign,freq[1])
 
 if __name__ == '__main__':
     try:
