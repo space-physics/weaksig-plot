@@ -4,19 +4,23 @@ http://wsprnet.org/drupal/downloads
 """
 from matplotlib.pyplot import show
 #
-from weaksig_plot import readwspr,plotwspr
+from weaksig_plot import readwspr, wsprstrip,plottime
 
 csvfn = 'data/wsprspots-2017-02.csv'
 callsign = 'W1BUR'
 freq = [3,7] # 3, 7 [MHz]
 
-try:
+def wsprplots(dat,callsign,freq):
     for f in freq:
-        plotwspr(dat,callsign, f)
-except NameError:
-    dat = readwspr(csvfn, callsign, freq)
-    for f in freq:
-        plotwspr(dat,callsign,f)
+        wsprstrip(dat,callsign, f)
 
+    plottime(dat,callsign,freq[1])
 
-show()
+if __name__ == '__main__':
+    try:
+        wsprplots(dat,callsign,freq)
+    except NameError:
+        dat = readwspr(csvfn, callsign, freq)
+        wsprplots(dat,callsign,freq)
+
+    show()

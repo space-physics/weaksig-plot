@@ -1,8 +1,9 @@
 from pathlib import Path
+from datetime import datetime
 from numpy import in1d
 from pandas import read_csv,DataFrame,cut
-import seaborn as sns
 from matplotlib.pyplot import figure
+import seaborn as sns
 
 
 def readwspr(csvfn, callsign:str, band:int) -> DataFrame:
@@ -16,23 +17,54 @@ def readwspr(csvfn, callsign:str, band:int) -> DataFrame:
                    #nrows=1000)
     )
 
-    i = in1d(dat['band'],band) & (dat['rxcall'] == callsign) | (dat['txcall'] == callsign)
+    i = in1d(dat['band'],band) & ((dat['rxcall'] == callsign) | (dat['txcall'] == callsign))
 
     dat = dat.loc[i,:]
 
     return dat
 
-def plotwspr(dat, callsign:str, band:int):
+def wsprstrip(dat, callsign:str, band:int):
+    """
+    due to low sample number, show point for each sample.
+    horizontal jitter of points is random and just for plotting ease.
+    """
     dat = dat.loc[dat['band']==band,:]
-
 
     bins = [0,50,100,250,500]
 
     cats = cut(dat['distkm'], bins)
-    dat['range_bins'] = cats
+    #dat['range_bins'] = cats
 
     ax = figure().gca()
 
-#    sns.boxplot(x=cats,y='snr',data=dat)
     sns.stripplot(x=cats,y='snr',data=dat, jitter=True, ax=ax)
-    ax.set_title(f'SNR vs. distance [km] for {callsign} on {band} MHz')
+    ax.set_title(f'SNR [dB] vs. distance [km] for {callsign} on {band} MHz')
+
+def plottime(dat,callsign,band):
+    # list of stations that heard me or that I heard
+    allcalls = dat['rxcall'].append(dat['txcall']).unique()
+
+    for c in allcalls:
+        if c == callsign: # I can't transmit or receive myself
+            continue
+
+        cdat = dat.loc[((dat['rxcall']==c) | (dat['txcall']==c)) & (dat['band'] == band), ['tut','distkm','snr']]
+        if cdat.size==0:
+            return
+
+        distkm = cdat['distkm'].iat[0] # NOTE: assumes not moving
+        if cdat.shape[0] < 3 or distkm>250: # if not many data points, skip plotting, or if too far for NVIS
+            continue
+
+        cdat['t'] = [datetime.utcfromtimestamp(u) for u in cdat['tut']]
+        cdat['hod'] = [r.hour for r in cdat.t]
+        bins = range(24) # hours of day
+        cats = cut(cdat['hod'],bins)
+
+
+        ax = figure().gca()
+        sns.stripplot(x=cats,y='snr',data=cdat,jitter=True,ax=ax)
+        ax.set_title(f'SNR [dB] vs. time [UTC] for {c} on {band} MHz, distance {distkm} km.' )
+        #ax.set_title(f'SNR vs. Time for {c}')
+        #ax.set_xlabel('time UTC')
+        #ax.set_ylabel('SNR [dB]')
