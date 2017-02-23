@@ -15,10 +15,9 @@ Programs
 ========
 
 
--------- -------------------
+======== ===================
 program  description
--------- -------------------
+======== ===================
 MaxSig   plots maximum signal on a frequency vs. distance "What's the strongest I'm heard at a distance and frequency?"
-
--------- -------------------
+======== ===================
 
