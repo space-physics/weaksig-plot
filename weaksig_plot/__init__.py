@@ -1,7 +1,7 @@
 from pathlib import Path
 from datetime import datetime
 from pytz import timezone
-from numpy import in1d, log10
+from numpy import in1d, log10,zeros
 from pandas import read_csv,DataFrame,cut
 from matplotlib.pyplot import figure
 import seaborn as sns
@@ -55,27 +55,29 @@ def readwspr(fn, callsign:str, band:int) -> DataFrame:
 
 def cleandistortion(dat):
     """
-    unless you're running mulitple transmitters or receivers, you shouldn't see multiple
+    unless you're running multiple transmitters or receivers, you shouldn't see multiple
     signal reports in the same minute from/to the same station.
     These multiple reports can happen due to distortion in the receiver or transmitter.
     
     This is improvised method, due to few NVIS stations to measure.
     """
     
+    invalid = zeros(dat.shape[0],dtype=bool)
     for t in dat.t: # for each time step...
         i = dat.t == t # boolean
         if i.sum() == 1:
             continue # can't be dupe if there's only one report at this time!
-            
-        for c in dat.loc[i,'rxcall']: # right now we clean distortion only in others' receivers.
+        
+        for c in dat.loc[i,'rxcall'].unique(): # right now we clean distortion only in others' receivers.
             j = i & (dat.rxcall == c)
             if j.sum() == 1:
                 continue # normal case
                 
             ok = dat.loc[j,'snr'].argmax()
-            invalid = j
-            invalid[ok] = False
-            dat = dat.loc[~invalid,:] # this is OK because of Pandas index referring to original indices
+            j[ok] = False
+            invalid |= j
+            
+    dat = dat.loc[~invalid,:] # this is OK because of Pandas index referring to original indices
             
     return dat
 
