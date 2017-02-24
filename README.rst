@@ -8,7 +8,7 @@ This helps understand what is feasible for general NVIS communications systems r
 
 .. image:: swarm.png
 
-The swarm plot gives a sense of how many samples are at a given configuration--if the maximum width is reached
+The swarm plot gives a sense of how many samples are at a given configuration--if the maximum width is reached, then you know there are at least N measurements for that result.
 
 .. image:: box.png
 
