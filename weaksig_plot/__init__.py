@@ -8,6 +8,8 @@ import seaborn as sns
 
 refbw = 2500 #[Hz] for WSPR
 refdbm = 30 # [dBm] makes SNR/W
+MAXNVISDIST=250 # [km] arbitrary maximum distance to be considered NVIS for plotting time
+MINPOINTS = 3 # minimum number of station measurements to be time plotted
 
 def readwspr(fn, callsign:str, band:int) -> DataFrame:
     fn = Path(fn).expanduser()
@@ -45,7 +47,7 @@ def readwspr(fn, callsign:str, band:int) -> DataFrame:
 
     return dat
 
-def wsprstrip(dat, callsign:str, band:int):
+def wsprstrip(dat:DataFrame, callsign:str, band:int):
     """
     due to low sample number, show point for each sample.
     horizontal jitter of points is random and just for plotting ease.
@@ -76,30 +78,43 @@ def wsprstrip(dat, callsign:str, band:int):
    # sns.violinplot(x=cats,y='snr',hue=hcats,data=dat,ax=ax)
    # _anno(ax)
 
-def plottime(dat,callsign,band):
+def plottime(dat:DataFrame, callsign:str, band:int, maxcalls:int):
     if dat.shape[0]==0:
         return
     # list of stations that heard me or that I heard
     allcalls = dat['rxcall'].append(dat['txcall']).unique()
+    if allcalls.size > maxcalls:
+        print(f'skipping individual station plots since number of stations > {maxcalls}')
+        return
 
     for c in allcalls:
         if c == callsign: # I can't transmit or receive myself
             continue
+        
+        cols = ['distkm','snr']
+        if 't' in dat:
+            cols += 't'
+        elif 'tut' in dat:
+            cols += 'tut'
+        else:
+            raise RuntimeError('times not in data? was file parsed correctly?')
+            
 
-        cdat = dat.loc[((dat['rxcall']==c) | (dat['txcall']==c)) & (dat['band'] == band), ['tut','distkm','snr']]
-        if cdat.size==0:
+        cdat = dat.loc[((dat['rxcall']==c) | (dat['txcall']==c)) & (dat['band'] == band), cols]
+        if cdat.shape[0]==0:
             return
 
         distkm = cdat['distkm'].iat[0] # NOTE: assumes not moving
-        if cdat.shape[0] < 3 or distkm>250: # if not many data points, skip plotting, or if too far for NVIS
+        if cdat.shape[0] < MINPOINTS or distkm>MAXNVISDIST: # if not many data points, skip plotting, or if too far for NVIS
             continue
 
         cdat, hcats = cathour(cdat)
-
+#%%
         ax = figure().gca()
-        sns.stripplot(x=hcats,y='snr',data=cdat,jitter=True,ax=ax)
+        sns.swarmplot(x=hcats,y='snr',hue=hcats,data=cdat,ax=ax)
         ax.set_title(f'SNR/Hz/W [dB] vs. time [local] for {c} on {band} MHz, distance {distkm} km.' )
         ax.set_ylabel('SNR/Hz/W [dB]')
+#%%
 
 def cathour(dat):
     if not 't' in dat:
