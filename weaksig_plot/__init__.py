@@ -5,6 +5,8 @@ from numpy import in1d, log10
 from pandas import read_csv,DataFrame,cut
 from matplotlib.pyplot import figure
 import seaborn as sns
+# 
+from sciencedates import forceutc
 
 refbw = 2500 #[Hz] for WSPR
 refdbm = 30 # [dBm] makes SNR/W
@@ -23,6 +25,7 @@ def readwspr(fn, callsign:str, band:int) -> DataFrame:
                    names=['tut','rxcall','snr','txcall','power','distkm','az','band','code'],
                    #nrows=1000)
                    )
+            dat['t'] = [forceutc(datetime.utcfromtimestamp(u)) for u in dat['tut']]
     elif fn.suffix=='.tsv':
             dat = read_csv(fn,
                    sep='\t',
@@ -31,15 +34,22 @@ def readwspr(fn, callsign:str, band:int) -> DataFrame:
                    names=['t','txcall','band','snr','power','rxcall','distkm'],
                    #nrows=1000)
             )
-
+#%% sanitization
             dat['band'] = dat['band'].astype(int)
-            dat['t'] = [datetime.strptime(t.strip(),'%Y-%m-%d %H:%M') for t in dat['t']]
+            dat['t'] = [forceutc(datetime.strptime(t.strip(),'%Y-%m-%d %H:%M')) for t in dat['t']]
             dat['rxcall'] = dat['rxcall'].str.strip()
             dat['txcall'] = dat['txcall'].str.strip()
-
+#%% extract only data relevant to our callsign on selected bands
     i = in1d(dat['band'],band) & ((dat['rxcall'] == callsign) | (dat['txcall'] == callsign))
 
     dat = dat.loc[i,:]
+#%% sanitize multiple reports in same minute
+    """
+    unless you're running mulitple transmitters or receivers, you shouldn't see multiple
+    signal reports in the same minute from/to the same station.
+    These multiple reports can happen due to distortion in the receiver or transmitter.
+    """
+    
 #%% compensate SNR -> SNR/Hz/W
     dat['snr'] += round(10*log10(refbw)) # snr/Hz
 
@@ -91,14 +101,7 @@ def plottime(dat:DataFrame, callsign:str, band:int, maxcalls:int):
         if c == callsign: # I can't transmit or receive myself
             continue
         
-        cols = ['distkm','snr']
-        if 't' in dat:
-            cols += 't'
-        elif 'tut' in dat:
-            cols += 'tut'
-        else:
-            raise RuntimeError('times not in data? was file parsed correctly?')
-            
+        cols = ['t','distkm','snr']
 
         cdat = dat.loc[((dat['rxcall']==c) | (dat['txcall']==c)) & (dat['band'] == band), cols]
         if cdat.shape[0]==0:
@@ -116,10 +119,8 @@ def plottime(dat:DataFrame, callsign:str, band:int, maxcalls:int):
         ax.set_ylabel('SNR/Hz/W [dB]')
 #%%
 
-def cathour(dat):
-    if not 't' in dat:
-        dat['t'] = [datetime.utcfromtimestamp(u).astimezone(timezone('US/Eastern')) for u in dat['tut']]
-
+def cathour(dat): 
+    dat['tlocal'] = [t.astimezone(timezone('US/Eastern')) for t in dat['t']]
     dat['hod'] = [r.hour for r in dat.t]
     bins = range(0,24+6,6) # hours of day
     cats = cut(dat['hod'],bins)

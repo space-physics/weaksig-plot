@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 from setuptools import setup
 
-req = ['nose','numpy','pandas','matplotlib','seaborn']
+req = ['nose','numpy','pandas','matplotlib','seaborn',
+       'sciencedates']
 
 #%% install
 setup(name='weaksig_plot',
