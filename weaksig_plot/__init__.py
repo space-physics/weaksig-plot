@@ -45,18 +45,42 @@ def readwspr(fn, callsign:str, band:int) -> DataFrame:
 
     dat = dat.loc[i,:]
 #%% sanitize multiple reports in same minute
-    """
-    unless you're running mulitple transmitters or receivers, you shouldn't see multiple
-    signal reports in the same minute from/to the same station.
-    These multiple reports can happen due to distortion in the receiver or transmitter.
-    """
-    
+    dat = cleandistortion(dat)
 #%% compensate SNR -> SNR/Hz/W
     dat['snr'] += round(10*log10(refbw)) # snr/Hz
 
     dat['snr'] += refdbm - dat['power'] # snr/Hz/W
 
     return dat
+
+def cleandistortion(dat):
+    """
+    unless you're running mulitple transmitters or receivers, you shouldn't see multiple
+    signal reports in the same minute from/to the same station.
+    These multiple reports can happen due to distortion in the receiver or transmitter.
+    
+    This is improvised method, due to few NVIS stations to measure.
+    """
+    
+    for t in dat.t: # for each time step...
+        i = dat.t == t # boolean
+        if i.sum() == 1:
+            continue # can't be dupe if there's only one report at this time!
+            
+        for c in dat.loc[i,'rxcall']: # right now we clean distortion only in others' receivers.
+            j = i & (dat.rxcall == c)
+            if j.sum() == 1:
+                continue # normal case
+                
+            ok = dat.loc[j,'snr'].argmax()
+            invalid = j
+            invalid[ok] = False
+            dat = dat.loc[~invalid,:] # this is OK because of Pandas index referring to original indices
+            
+    return dat
+
+                
+            
 
 def wsprstrip(dat:DataFrame, callsign:str, band:int):
     """
@@ -124,7 +148,7 @@ def cathour(dat, tz):
     # hour of day, local time
     dat['hod'] = [t.astimezone(timezone(tz)).hour for t in dat['t']]
 
-    bins = range(0,24+6,6) # hours of day
+    bins = range(0, 24+6, 6) # hours of day
     cats = cut(dat['hod'],bins)
 
-    return dat,cats
+    return dat, cats
