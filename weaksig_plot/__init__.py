@@ -120,8 +120,8 @@ def plottime(dat:DataFrame, callsign:str, band:int, maxcalls:int):
 #%%
 
 def cathour(dat): 
-    dat['tlocal'] = [t.astimezone(timezone('US/Eastern')) for t in dat['t']]
-    dat['hod'] = [r.hour for r in dat.t]
+    tlocal = [t.astimezone(timezone('US/Eastern')) for t in dat['t']]
+    dat['hod'] = [r.hour for r in tlocal]
     bins = range(0,24+6,6) # hours of day
     cats = cut(dat['hod'],bins)
 
