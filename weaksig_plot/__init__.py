@@ -1,11 +1,13 @@
 from pathlib import Path
 from datetime import datetime
 from pytz import timezone
-from numpy import in1d
+from numpy import in1d, log10
 from pandas import read_csv,DataFrame,cut
 from matplotlib.pyplot import figure
 import seaborn as sns
 
+refbw = 2500 #[Hz] for WSPR
+refdbm = 30 # [dBm] makes SNR/W
 
 def readwspr(fn, callsign:str, band:int) -> DataFrame:
     fn = Path(fn).expanduser()
@@ -36,6 +38,10 @@ def readwspr(fn, callsign:str, band:int) -> DataFrame:
     i = in1d(dat['band'],band) & ((dat['rxcall'] == callsign) | (dat['txcall'] == callsign))
 
     dat = dat.loc[i,:]
+#%% compensate SNR -> SNR/Hz/W
+    dat['snr'] += round(10*log10(refbw)) # snr/Hz
+
+    dat['snr'] += refdbm - dat['power'] # snr/Hz/W
 
     return dat
 
@@ -44,23 +50,35 @@ def wsprstrip(dat, callsign:str, band:int):
     due to low sample number, show point for each sample.
     horizontal jitter of points is random and just for plotting ease.
     """
-    if len(dat)==0:
-        return
+    def _anno(ax):
+        ax.set_title(f'SNR/Hz/W [dB] vs. distance [km] and time [local] for {callsign} on {band} MHz')
+        ax.set_ylabel('SNR/Hz/W [dB]')
 
     dat = dat.loc[dat['band']==band,:]
+    if dat.shape[0]==0: # none this band
+        return
 
-    bins = [0,50,100,250,500]
+    bins = [0,20,50,100,250,500,1000,2500,5000,10000,41000]
 
     cats = cut(dat['distkm'], bins)
     #dat['range_bins'] = cats
     dat,hcats = cathour(dat)
-
+#%% swarm
     ax = figure().gca()
-
     sns.swarmplot(x=cats,y='snr', hue=hcats, data=dat, ax=ax)
-    ax.set_title(f'SNR [dB] vs. distance [km] for {callsign} on {band} MHz')
+    _anno(ax)
+#%% box
+    ax = figure().gca()
+    sns.boxplot(x=cats,y='snr', hue=hcats, data=dat, ax=ax)
+    _anno(ax)
+#%% violin
+    #ax = figure().gca()
+   # sns.violinplot(x=cats,y='snr',hue=hcats,data=dat,ax=ax)
+   # _anno(ax)
 
 def plottime(dat,callsign,band):
+    if dat.shape[0]==0:
+        return
     # list of stations that heard me or that I heard
     allcalls = dat['rxcall'].append(dat['txcall']).unique()
 
@@ -80,14 +98,15 @@ def plottime(dat,callsign,band):
 
         ax = figure().gca()
         sns.stripplot(x=hcats,y='snr',data=cdat,jitter=True,ax=ax)
-        ax.set_title(f'SNR [dB] vs. time [local] for {c} on {band} MHz, distance {distkm} km.' )
+        ax.set_title(f'SNR/Hz/W [dB] vs. time [local] for {c} on {band} MHz, distance {distkm} km.' )
+        ax.set_ylabel('SNR/Hz/W [dB]')
 
 def cathour(dat):
     if not 't' in dat:
         dat['t'] = [datetime.utcfromtimestamp(u).astimezone(timezone('US/Eastern')) for u in dat['tut']]
 
     dat['hod'] = [r.hour for r in dat.t]
-    bins = range(0,24+3,3) # hours of day
+    bins = range(0,24+6,6) # hours of day
     cats = cut(dat['hod'],bins)
 
     return dat,cats
