@@ -116,7 +116,8 @@ def wsprstrip(dat:DataFrame, callsign:str, band:int):
    # _anno(ax)
 
 def plottime(dat:DataFrame, callsign:str, band:int, maxcalls:int):
-    if dat.shape[0]==0:
+    dat = dat.loc[dat['band']==band,:]
+    if dat.shape[0]==0: # none this band
         return
     # list of stations that heard me or that I heard
     allcalls = dat['rxcall'].append(dat['txcall']).unique()
@@ -145,6 +146,12 @@ def plottime(dat:DataFrame, callsign:str, band:int, maxcalls:int):
         ax.set_title(f'SNR/Hz/W [dB] vs. time [local] for {c} on {band} MHz, distance {distkm} km.' )
         ax.set_ylabel('SNR/Hz/W [dB]')
 #%%
+        ax = figure().gca()
+        ax.plot(dat.t,dat.snr,linestyle='none',marker='.')
+        ax.set_xlabel('time [local]')
+        ax.set_ylabel('SNR/Hz/W  [dB]')
+        ax.set_title(f'SNR/Hz/W [dB] vs. time [local] for {c} on {band} MHz, distance {distkm} km.' )
+ 
 
 def cathour(dat, tz): 
     # hour of day, local time
