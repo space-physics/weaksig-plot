@@ -5,7 +5,7 @@ from numpy import in1d, log10,zeros
 from pandas import read_csv,DataFrame,cut
 from matplotlib.pyplot import figure
 import seaborn as sns
-# 
+#
 from sciencedates import forceutc
 
 refbw = 2500 #[Hz] for WSPR
@@ -18,13 +18,16 @@ def readwspr(fn, callsign:str, band:int) -> DataFrame:
     fn = Path(fn).expanduser()
     callsign = callsign.upper()
 
-    if fn.suffix=='.csv':
+    if fn.suffix == '.csv': # .gz not readable for some reason
             dat = read_csv(fn,
                    sep=',',
                    index_col=False,
                    usecols=[1,2,4,6,8,10,11,12,14],
                    names=['tut','rxcall','snr','txcall','power','distkm','az','band','code'],
+                   dtype={'tut':int,'rxcall':str,'snr':int,'txcall':str,'power':int,
+                          'distkm':int,'az':int,'band':int,'code':int},
                    #nrows=1000)
+                   memory_map=True,
                    )
             dat['t'] = [forceutc(datetime.utcfromtimestamp(u)) for u in dat['tut']]
     elif fn.suffix=='.tsv':
@@ -33,6 +36,8 @@ def readwspr(fn, callsign:str, band:int) -> DataFrame:
                    index_col=False,
                    usecols=[0,1,2,3,6,8,10],
                    names=['t','txcall','band','snr','power','rxcall','distkm'],
+                   dtype={'t':str,'txcall':str,'band':float,'snr':int,'power':int,
+                          'rxcall':str,'distkm':int},
                    #nrows=1000)
             )
 #%% sanitization
@@ -40,12 +45,18 @@ def readwspr(fn, callsign:str, band:int) -> DataFrame:
             dat['t'] = [forceutc(datetime.strptime(t.strip(),'%Y-%m-%d %H:%M')) for t in dat['t']]
             dat['rxcall'] = dat['rxcall'].str.strip()
             dat['txcall'] = dat['txcall'].str.strip()
+    else:
+        raise ValueError(f'{fn} is not a known type to this program')
+
+    print(f'done loading {fn}')
 #%% extract only data relevant to our callsign on selected bands
     i = in1d(dat['band'],band) & ((dat['rxcall'] == callsign) | (dat['txcall'] == callsign))
 
     dat = dat.loc[i,:]
 #%% sanitize multiple reports in same minute
+    print('cleaning data')
     dat = cleandistortion(dat)
+    print('done cleaning data')
 #%% compensate SNR -> SNR/Hz/W
     dat['snr'] += round(10*log10(refbw)) # snr/Hz
 
@@ -58,37 +69,42 @@ def cleandistortion(dat):
     unless you're running multiple transmitters or receivers, you shouldn't see multiple
     signal reports in the same minute from/to the same station.
     These multiple reports can happen due to distortion in the receiver or transmitter.
-    
+
     This is improvised method, due to few NVIS stations to measure.
     """
-    
+
     invalid = zeros(dat.shape[0],dtype=bool)
-    for t in dat.t: # for each time step...
+    for k,t in enumerate(dat.t.unique()): # for each time step...
+        if not k % 10:
+            print(t)
+
         i = dat.t == t # boolean
         if i.sum() == 1:
             continue # can't be dupe if there's only one report at this time!
-        
+
         for c in dat.loc[i,'rxcall'].unique(): # right now we clean distortion only in others' receivers.
             j = i & (dat.rxcall == c)
             if j.sum() == 1:
                 continue # normal case
-                
+
             ok = dat.loc[j,'snr'].argmax()
             j[ok] = False
             invalid |= j
-            
+
     dat = dat.loc[~invalid,:] # this is OK because of Pandas index referring to original indices
-            
+
     return dat
 
-                
-            
+
+
 
 def wsprstrip(dat:DataFrame, callsign:str, band:int):
     """
     due to low sample number, show point for each sample.
     horizontal jitter of points is random and just for plotting ease.
     """
+    callsign = callsign.upper()
+
     def _anno(ax):
         ax.set_title(f'SNR/Hz/W [dB] vs. distance [km] and time [local] for {callsign} on {band} MHz')
         ax.set_ylabel('SNR/Hz/W [dB]')
@@ -103,10 +119,11 @@ def wsprstrip(dat:DataFrame, callsign:str, band:int):
     #dat['range_bins'] = cats
     dat,hcats = cathour(dat, TIMEZONE)
 #%% swarm
-    ax = figure().gca()
-    sns.swarmplot(x=cats,y='snr', hue=hcats, data=dat, ax=ax)
-    _anno(ax)
+#    ax = figure().gca()
+#    sns.swarmplot(x=cats,y='snr', hue=hcats, data=dat, ax=ax)
+#    _anno(ax)
 #%% box
+    print('boxplot')
     ax = figure().gca()
     sns.boxplot(x=cats,y='snr', hue=hcats, data=dat, ax=ax)
     _anno(ax)
@@ -115,45 +132,46 @@ def wsprstrip(dat:DataFrame, callsign:str, band:int):
    # sns.violinplot(x=cats,y='snr',hue=hcats,data=dat,ax=ax)
    # _anno(ax)
 
-def plottime(dat:DataFrame, callsign:str, band:int, maxcalls:int):
+def plottime(dat:DataFrame, callsign:str, band:int, call2:str=None):
+    if call2 is None:
+        return
+    call2=call2.upper()
+    callsign=callsign.upper()
+
     dat = dat.loc[dat['band']==band,:]
     if dat.shape[0]==0: # none this band
         return
     # list of stations that heard me or that I heard
-    allcalls = dat['rxcall'].append(dat['txcall']).unique()
-    if allcalls.size > maxcalls:
-        print(f'skipping individual station plots since number of stations > {maxcalls}')
+    #allcalls = dat['rxcall'].append(dat['txcall']).unique()
+
+    cols = ['t','distkm','snr']
+
+    cdat = dat.loc[((dat['rxcall']==call2) | (dat['txcall']==call2)) & (dat['band'] == band), cols]
+    if cdat.shape[0]==0:
         return
 
-    for c in allcalls:
-        if c == callsign: # I can't transmit or receive myself
-            continue
-        
-        cols = ['t','distkm','snr']
+    distkm = cdat['distkm'].iat[0] # NOTE: assumes not moving
 
-        cdat = dat.loc[((dat['rxcall']==c) | (dat['txcall']==c)) & (dat['band'] == band), cols]
-        if cdat.shape[0]==0:
-            return
-
-        distkm = cdat['distkm'].iat[0] # NOTE: assumes not moving
-        if cdat.shape[0] < MINPOINTS or distkm>MAXNVISDIST: # if not many data points, skip plotting, or if too far for NVIS
-            continue
-
-        cdat, hcats = cathour(cdat, TIMEZONE)
+    cdat, hcats = cathour(cdat, TIMEZONE)
+#%% swarm
+    ax = figure().gca()
+    sns.swarmplot(x=hcats,y='snr',hue=hcats,data=cdat,ax=ax)
+    ax.set_title(f'SNR/Hz/W [dB] vs. time [local] for {call2} on {band} MHz, distance {distkm} km.' )
+    ax.set_ylabel('SNR/Hz/W [dB]')
+#%% box
+    ax = figure().gca()
+    sns.boxplot(x=hcats,y='snr',hue=hcats,data=cdat,ax=ax)
+    ax.set_title(f'SNR/Hz/W [dB] vs. time [local] for {call2} on {band} MHz, distance {distkm} km.' )
+    ax.set_ylabel('SNR/Hz/W [dB]')
 #%%
-        ax = figure().gca()
-        sns.swarmplot(x=hcats,y='snr',hue=hcats,data=cdat,ax=ax)
-        ax.set_title(f'SNR/Hz/W [dB] vs. time [local] for {c} on {band} MHz, distance {distkm} km.' )
-        ax.set_ylabel('SNR/Hz/W [dB]')
-#%%
-        ax = figure().gca()
-        ax.plot(dat.t,dat.snr,linestyle='none',marker='.')
-        ax.set_xlabel('time [local]')
-        ax.set_ylabel('SNR/Hz/W  [dB]')
-        ax.set_title(f'SNR/Hz/W [dB] vs. time [local] for {c} on {band} MHz, distance {distkm} km.' )
- 
+    ax = figure().gca()
+    ax.plot(cdat.t.values, cdat.snr.values, linestyle='-',marker='.')
+    ax.set_xlabel('time [local]')
+    ax.set_ylabel('SNR/Hz/W  [dB]')
+    ax.set_title(f'SNR/Hz/W [dB] vs. time [local] for {call2} on {band} MHz, distance {distkm} km.' )
 
-def cathour(dat, tz): 
+
+def cathour(dat, tz):
     # hour of day, local time
     dat['hod'] = [t.astimezone(timezone(tz)).hour for t in dat['t']]
 
