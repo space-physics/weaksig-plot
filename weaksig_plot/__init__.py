@@ -1,5 +1,6 @@
 from pathlib import Path
 from datetime import datetime
+from dateutil.parser import parse
 from pytz import timezone
 from numpy import in1d, log10,zeros
 from xarray import DataArray
@@ -15,7 +16,7 @@ MAXNVISDIST=250 # [km] arbitrary maximum distance to be considered NVIS for plot
 MINPOINTS = 3 # minimum number of station measurements to be time plotted
 TIMEZONE = 'US/Eastern' # TODO make parameter
 
-def readwspr(fn, callsign:str, band:int, call2) -> DataFrame:
+def readwspr(fn, callsign:str, band:int, call2, tlim) -> DataFrame:
     fn = Path(fn).expanduser()
     callsign = callsign.upper()
     if isinstance(call2,(tuple,list)):
@@ -54,8 +55,14 @@ def readwspr(fn, callsign:str, band:int, call2) -> DataFrame:
     print(f'done loading {fn}')
 #%% extract only data relevant to our callsign on selected bands
     i = in1d(dat['band'],band) & ((dat['rxcall'] == callsign) | (dat['txcall'] == callsign))
+
     if call2 is not None:
         i &= in1d(dat['rxcall'],call2)
+
+    if tlim is not None:
+        tlim = [forceutc(parse(t)) for t in tlim]
+        i &= (dat.t >= tlim[0]) & (dat.t <= tlim[1])
+
 
     dat = dat.loc[i,:]
 #%% sanitize multiple reports in same minute
