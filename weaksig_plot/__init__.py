@@ -2,6 +2,7 @@ from pathlib import Path
 from datetime import datetime
 from pytz import timezone
 from numpy import in1d, log10,zeros
+from xarray import DataArray
 from pandas import read_csv,DataFrame,cut
 from matplotlib.pyplot import figure
 import seaborn as sns
@@ -14,9 +15,11 @@ MAXNVISDIST=250 # [km] arbitrary maximum distance to be considered NVIS for plot
 MINPOINTS = 3 # minimum number of station measurements to be time plotted
 TIMEZONE = 'US/Eastern' # TODO make parameter
 
-def readwspr(fn, callsign:str, band:int) -> DataFrame:
+def readwspr(fn, callsign:str, band:int, call2) -> DataFrame:
     fn = Path(fn).expanduser()
     callsign = callsign.upper()
+    if isinstance(call2,(tuple,list)):
+        call2=[c.upper() for c in call2]
 
     if fn.suffix == '.csv': # .gz not readable for some reason
             dat = read_csv(fn,
@@ -51,11 +54,13 @@ def readwspr(fn, callsign:str, band:int) -> DataFrame:
     print(f'done loading {fn}')
 #%% extract only data relevant to our callsign on selected bands
     i = in1d(dat['band'],band) & ((dat['rxcall'] == callsign) | (dat['txcall'] == callsign))
+    if call2 is not None:
+        i &= in1d(dat['rxcall'],call2)
 
     dat = dat.loc[i,:]
 #%% sanitize multiple reports in same minute
     print('cleaning data')
-    dat = cleandistortion(dat)
+    dat = cleandistortion(dat,call2)
     print('done cleaning data')
 #%% compensate SNR -> SNR/Hz/W
     dat['snr'] += round(10*log10(refbw)) # snr/Hz
@@ -64,28 +69,34 @@ def readwspr(fn, callsign:str, band:int) -> DataFrame:
 
     return dat
 
-def cleandistortion(dat):
+def cleandistortion(dat:DataArray,call2:list=None):
     """
     unless you're running multiple transmitters or receivers, you shouldn't see multiple
     signal reports in the same minute from/to the same station.
     These multiple reports can happen due to distortion in the receiver or transmitter.
 
     This is improvised method, due to few NVIS stations to measure.
-    """
 
-    invalid = zeros(dat.shape[0],dtype=bool)
+    right now we clean distortion only in others' receivers.
+    """
+    if call2 is None:
+        rxcalls = dat.loc['rxcall'].unique()
+    else:
+        rxcalls = call2
+
+    invalid = zeros(dat.shape[0], dtype=bool)
     for k,t in enumerate(dat.t.unique()): # for each time step...
-        if not k % 10:
+        if not k % 20:
             print(t)
 
         i = dat.t == t # boolean
         if i.sum() == 1:
             continue # can't be dupe if there's only one report at this time!
 
-        for c in dat.loc[i,'rxcall'].unique(): # right now we clean distortion only in others' receivers.
+        for c in rxcalls:
             j = i & (dat.rxcall == c)
-            if j.sum() == 1:
-                continue # normal case
+            if j.sum() <= 1:
+                continue # normal case, 0 or 1 spot by this call
 
             ok = dat.loc[j,'snr'].argmax()
             j[ok] = False
@@ -132,10 +143,12 @@ def wsprstrip(dat:DataFrame, callsign:str, band:int):
    # sns.violinplot(x=cats,y='snr',hue=hcats,data=dat,ax=ax)
    # _anno(ax)
 
-def plottime(dat:DataFrame, callsign:str, band:int, call2:str=None):
-    if call2 is None:
+def plottime(dat:DataFrame, callsign:str, band:int, call2:list=None):
+    if not call2:
         return
-    call2=call2.upper()
+
+    assert isinstance(call2,(tuple,list)),'list of calls received'
+    call2=[c.upper() for c in call2]
     callsign=callsign.upper()
 
     dat = dat.loc[dat['band']==band,:]
@@ -146,7 +159,7 @@ def plottime(dat:DataFrame, callsign:str, band:int, call2:str=None):
 
     cols = ['t','distkm','snr']
 
-    cdat = dat.loc[((dat['rxcall']==call2) | (dat['txcall']==call2)) & (dat['band'] == band), cols]
+    cdat = dat.loc[(in1d(dat['rxcall'],call2) | in1d(dat['txcall'],call2)) & (dat['band'] == band), cols]
     if cdat.shape[0]==0:
         return
 
