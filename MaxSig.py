@@ -7,6 +7,8 @@ Processes and plot gigabyte .csv files containing WSPR propagation data
 Examples:
 ./MaxSig.py w1bur ~/data/wsprspots-2017-02.tsv --c2 kk1d wa9wtk -b 7 -t 2017-02-27T00 2018-01-01T00
 
+./MaxSig.py w1bur ~/data/wsprspots-2017-02.tsv --c2 kk1d wa9wtk -b 3
+
 """
 from pandas import DataFrame
 from matplotlib.pyplot import show
@@ -16,11 +18,11 @@ from weaksig_plot import readwspr, wsprstrip,plottime
 #fn = 'data/wsprspots-2017-02.csv'
 #fn = 'data/2017-02-23.tsv'
 
-def wsprplots(dat:DataFrame, callsign:str, call2:str, band:int, maxcalls:int):
+def wsprplots(dat:DataFrame, callsign:str, call2:str, band:int, maxcalls:int, verbose:bool):
     for b in band:
 #        wsprstrip(dat,callsign, b)
 
-        plottime(dat,callsign, b, call2)
+        plottime(dat,callsign, b, call2, verbose)
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
@@ -31,14 +33,15 @@ if __name__ == '__main__':
     p.add_argument('-b','--band',help='frequency band (integer MHz) to plot [3,5,7]',nargs='+',default=[3,5,7],type=int)
     p.add_argument('--maxcalls',help='if more than this number of stations, do not do individual time plots to save time',type=int,default=10)
     p.add_argument('-t','--tlim',help='start stop time limites to plot',nargs=2)
+    p.add_argument('-v','--verbose',action='store_true')
     p = p.parse_args()
 
     try: # save time by reusing already loaded data
         if dat.shape[0]==0: # bad read, try again
             del dat
-        wsprplots(dat, p.callsign, p.c2, p.band, p.maxcalls)
+        wsprplots(dat, p.callsign, p.c2, p.band, p.maxcalls, p.verbose)
     except NameError: # load then plot
         dat = readwspr(p.fn, p.callsign, p.band, p.c2, p.tlim)
-        wsprplots(dat, p.callsign, p.c2, p.band, p.maxcalls)
+        wsprplots(dat, p.callsign, p.c2, p.band, p.maxcalls, p.verbose)
 
     show()
