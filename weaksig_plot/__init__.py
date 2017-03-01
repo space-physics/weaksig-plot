@@ -157,7 +157,7 @@ def plottime(dat:DataFrame, callsign:str, band:int, call2:list=None):
     # list of stations that heard me or that I heard
     #allcalls = dat['rxcall'].append(dat['txcall']).unique()
 
-    cols = ['t','distkm','snr']
+    cols = ['t','distkm','snr','rxcall']
 
     cdat = dat.loc[(in1d(dat['rxcall'],call2) | in1d(dat['txcall'],call2)) & (dat['band'] == band), cols]
     if cdat.shape[0]==0:
@@ -165,23 +165,26 @@ def plottime(dat:DataFrame, callsign:str, band:int, call2:list=None):
 
     distkm = cdat['distkm'].iat[0] # NOTE: assumes not moving
 
-    cdat, hcats = cathour(cdat, TIMEZONE)
+    for c in call2:
+        i = cdat['rxcall'] == c
+        D = cdat.loc[i,:]
+        D, hcats = cathour(D, TIMEZONE)
 #%% swarm
-    ax = figure().gca()
-    sns.swarmplot(x=hcats,y='snr',hue=hcats,data=cdat,ax=ax)
-    ax.set_title(f'SNR/Hz/W [dB] vs. time [local] for {call2} on {band} MHz, distance {distkm} km.' )
-    ax.set_ylabel('SNR/Hz/W [dB]')
+        ax = figure().gca()
+        sns.swarmplot(x=hcats, y='snr',hue=hcats,data=D, ax=ax)
+        ax.set_title(f'SNR/Hz/W [dB] vs. time [local] for {c} on {band} MHz, distance {distkm} km.' )
+        ax.set_ylabel('SNR/Hz/W [dB]')
 #%% box
-    ax = figure().gca()
-    sns.boxplot(x=hcats,y='snr',hue=hcats,data=cdat,ax=ax)
-    ax.set_title(f'SNR/Hz/W [dB] vs. time [local] for {call2} on {band} MHz, distance {distkm} km.' )
-    ax.set_ylabel('SNR/Hz/W [dB]')
+        ax = figure().gca()
+        sns.boxplot(x=hcats, y='snr',hue=hcats,data=D, ax=ax)
+        ax.set_title(f'SNR/Hz/W [dB] vs. time [local] for {c} on {band} MHz, distance {distkm} km.' )
+        ax.set_ylabel('SNR/Hz/W [dB]')
 #%%
-    ax = figure().gca()
-    ax.plot(cdat.t.values, cdat.snr.values, linestyle='-',marker='.')
-    ax.set_xlabel('time [local]')
-    ax.set_ylabel('SNR/Hz/W  [dB]')
-    ax.set_title(f'SNR/Hz/W [dB] vs. time [local] for {call2} on {band} MHz, distance {distkm} km.' )
+        ax = figure().gca()
+        ax.plot(D.t, D.snr, linestyle='-',marker='.',label=c)
+        ax.set_xlabel('time [local]')
+        ax.set_ylabel('SNR/Hz/W  [dB]')
+        ax.set_title(f'SNR/Hz/W [dB] vs. time [local] for {c} on {band} MHz, distance {distkm} km.' )
 
 
 def cathour(dat, tz):
