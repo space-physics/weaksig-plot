@@ -2,11 +2,13 @@ from pathlib import Path
 from datetime import datetime
 from dateutil.parser import parse
 from pytz import timezone
-from numpy import in1d, log10,zeros
+from numpy import in1d, log10,zeros, datetime64, timedelta64
 from xarray import DataArray
 from pandas import read_csv,DataFrame,cut
 from matplotlib.pyplot import figure
 import seaborn as sns
+from os import devnull
+import h5py
 #
 from sciencedates import forceutc
 
@@ -151,7 +153,7 @@ def wsprstrip(dat:DataFrame, callsign:str, band:int):
    # sns.violinplot(x=cats,y='snr',hue=hcats,data=dat,ax=ax)
    # _anno(ax)
 
-def plottime(dat:DataFrame, callsign:str, band:int, call2:list=None,verbose=False):
+def plottime(dat:DataFrame, callsign:str, band:int, call2:list=None, outfn:str=None,verbose:bool=False):
     if not call2:
         return
 
@@ -193,12 +195,21 @@ def plottime(dat:DataFrame, callsign:str, band:int, call2:list=None,verbose=Fals
         ax.set_ylabel('SNR/Hz/W [dB]')
 #%%
     ax = figure().gca()
+
+
     for c in call2:
         i = cdat['rxcall'] == c
         D = cdat.loc[i,:]
         D, hcats = cathour(D, TIMEZONE)
 
         t = [t.astimezone(timezone(TIMEZONE)) for t in D.t]
+
+        # store time as Unix timestamp
+        if outfn:
+            print(f'writing {outfn}')
+            with h5py.File(outfn,'a',libver='latest') as f:
+                f[f'/{c}/t'] = (D.t.values-datetime64('1970-01-01T00Z'))/timedelta64(1,'s')
+                f[f'/{c}/snr'] = D.snr
 
         ax.plot(t, D.snr, linestyle='-',marker='.',label=c,markersize=10)
         ax.set_xlabel('time [local]')

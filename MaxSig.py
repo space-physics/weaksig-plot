@@ -18,11 +18,11 @@ from weaksig_plot import readwspr, wsprstrip,plottime
 #fn = 'data/wsprspots-2017-02.csv'
 #fn = 'data/2017-02-23.tsv'
 
-def wsprplots(dat:DataFrame, callsign:str, call2:str, band:int, maxcalls:int, verbose:bool):
+def wsprplots(dat:DataFrame, callsign:str, call2:str, band:int, maxcalls:int, outfn, verbose:bool):
     for b in band:
 #        wsprstrip(dat,callsign, b)
 
-        plottime(dat,callsign, b, call2, verbose)
+        plottime(dat,callsign, b, call2, outfn, verbose)
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
@@ -34,14 +34,15 @@ if __name__ == '__main__':
     p.add_argument('--maxcalls',help='if more than this number of stations, do not do individual time plots to save time',type=int,default=10)
     p.add_argument('-t','--tlim',help='start stop time limites to plot',nargs=2)
     p.add_argument('-v','--verbose',action='store_true')
+    p.add_argument('-o','--outfn',help='hdf5 file to dump plotted data to')
     p = p.parse_args()
 
     try: # save time by reusing already loaded data
         if dat.shape[0]==0: # bad read, try again
             del dat
-        wsprplots(dat, p.callsign, p.c2, p.band, p.maxcalls, p.verbose)
+        wsprplots(dat, p.callsign, p.c2, p.band, p.maxcalls, p.outfn, p.verbose)
     except NameError: # load then plot
         dat = readwspr(p.fn, p.callsign, p.band, p.c2, p.tlim)
-        wsprplots(dat, p.callsign, p.c2, p.band, p.maxcalls, p.verbose)
+        wsprplots(dat, p.callsign, p.c2, p.band, p.maxcalls, p.outfn, p.verbose)
 
     show()
