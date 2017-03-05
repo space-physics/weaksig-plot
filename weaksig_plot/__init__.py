@@ -2,12 +2,11 @@ from pathlib import Path
 from datetime import datetime
 from dateutil.parser import parse
 from pytz import timezone
-from numpy import in1d, log10,zeros, datetime64, timedelta64
+from numpy import in1d, log10,zeros, datetime64, timedelta64, column_stack
 from xarray import DataArray
 from pandas import read_csv,DataFrame,cut
 from matplotlib.pyplot import figure
 import seaborn as sns
-from os import devnull
 import h5py
 #
 from sciencedates import forceutc
@@ -51,6 +50,16 @@ def readwspr(fn, callsign:str, band:int, call2, tlim) -> DataFrame:
             dat['t'] = [forceutc(datetime.strptime(t.strip(),'%Y-%m-%d %H:%M')) for t in dat['t']]
             dat['rxcall'] = dat['rxcall'].str.strip()
             dat['txcall'] = dat['txcall'].str.strip()
+    elif fn.suffix=='.h5': #assume preprocessed data
+        """
+        here we assume the hierarchy is by callsign
+        """
+        dat = {}
+        with h5py.File(str(fn),'r',libver='latest') as f:
+            for c in f['/']: # iterate over callsign
+                dat[c] = DataFrame(index=f[f'{c}/t'],
+                                   columns=['snr','band'],
+                                   data=column_stack(f[f'{c}/snr'],f[f'{c}/band']))
     else:
         raise ValueError(f'{fn} is not a known type to this program')
 
@@ -64,7 +73,6 @@ def readwspr(fn, callsign:str, band:int, call2, tlim) -> DataFrame:
     if tlim is not None:
         tlim = [forceutc(parse(t)) for t in tlim]
         i &= (dat.t >= tlim[0]) & (dat.t <= tlim[1])
-
 
     dat = dat.loc[i,:]
 #%% sanitize multiple reports in same minute
@@ -138,7 +146,7 @@ def wsprstrip(dat:DataFrame, callsign:str, band:int):
 
     cats = cut(dat['distkm'], bins)
     #dat['range_bins'] = cats
-    dat,hcats = cathour(dat, TIMEZONE)
+    hcats = cathour(dat, TIMEZONE)
 #%% swarm
 #    ax = figure().gca()
 #    sns.swarmplot(x=cats,y='snr', hue=hcats, data=dat, ax=ax)
@@ -153,9 +161,11 @@ def wsprstrip(dat:DataFrame, callsign:str, band:int):
    # sns.violinplot(x=cats,y='snr',hue=hcats,data=dat,ax=ax)
    # _anno(ax)
 
-def plottime(dat:DataFrame, callsign:str, band:int, call2:list=None, outfn:str=None,verbose:bool=False):
+def plottime(dat:DataFrame, callsign:str, band:int, call2:list=None, outfn:str='',verbose:bool=False):
     if not call2:
         return
+
+    outfn = Path(outfn).expanduser()
 
     assert isinstance(call2,(tuple,list)),'list of calls received'
     call2=[c.upper() for c in call2]
@@ -167,22 +177,27 @@ def plottime(dat:DataFrame, callsign:str, band:int, call2:list=None, outfn:str=N
     # list of stations that heard me or that I heard
     #allcalls = dat['rxcall'].append(dat['txcall']).unique()
 
-    cols = ['t','distkm','snr','rxcall']
+    cols = ['t','distkm','snr','rxcall','band']
 
     cdat = dat.loc[(in1d(dat['rxcall'],call2) | in1d(dat['txcall'],call2)) & (dat['band'] == band), cols]
     if cdat.shape[0]==0:
         return
 
-    distkm = []
+    distkm = []; az = []
     for c in call2:
         i = cdat['rxcall'] == c
+        if i.sum()==0:
+            distkm.append(None)
+            continue
         distkm.append(cdat.loc[i,'distkm'].iat[0]) # NOTE: assumes not moving
+        if 'az' in cdat:
+            az.append(cdat.loc[i,'az'].iat[0])
 
     if verbose:
       for j,c in enumerate(call2):
         i = cdat['rxcall'] == c
         D = cdat.loc[i,:]
-        D, hcats = cathour(D, TIMEZONE)
+        hcats = cathour(D, TIMEZONE)
 #%% swarm
 #        ax = figure().gca()
 #        sns.swarmplot(x=hcats, y='snr',hue=hcats,data=D, ax=ax)
@@ -191,38 +206,46 @@ def plottime(dat:DataFrame, callsign:str, band:int, call2:list=None, outfn:str=N
 #%% box
         ax = figure().gca()
         sns.boxplot(x=hcats, y='snr',data=D, ax=ax)
-        ax.set_title(f'SNR/Hz/W [dB] vs. time [local]\n{c} on {band} MHz, distance {distkm[j]} km.' )
+        ax.set_title(f'SNR/Hz/W [dB] vs. time \n{c} on {band} MHz, distance {distkm[j]} km.' )
         ax.set_ylabel('SNR/Hz/W [dB]')
 #%%
+    if outfn:
+        outfn = outfn.parent/(outfn.stem + f'_{band}.h5') # FIXME hack
+        if outfn.is_file():
+            outfn.unlink()
+#%%
     ax = figure().gca()
-
-
-    for c in call2:
+    for j,c in enumerate(call2):
         i = cdat['rxcall'] == c
+        if i.sum() == 0:
+            continue
         D = cdat.loc[i,:]
-        D, hcats = cathour(D, TIMEZONE)
-
-        t = [t.astimezone(timezone(TIMEZONE)) for t in D.t]
+        hcats = cathour(D, TIMEZONE)
 
         # store time as Unix timestamp
         if outfn:
+
             print(f'writing {outfn}')
-            with h5py.File(outfn,'a',libver='latest') as f:
+            with h5py.File(str(outfn),'a',libver='latest') as f:
                 f[f'/{c}/t'] = (D.t.values-datetime64('1970-01-01T00Z'))/timedelta64(1,'s')
                 f[f'/{c}/snr'] = D.snr
+                f[f'/{c}/band'] = D.band
+                f[f'/{c}/distkm'] = distkm[j]
+                if az:
+                    f[f'/{c}/azimuth'] = az[j]
 
-        ax.plot(t, D.snr, linestyle='-',marker='.',label=c,markersize=10)
-        ax.set_xlabel('time [local]')
+        ax.plot(D.t, D.snr, linestyle='-',marker='.',label=str(distkm[j]),markersize=10)
+        ax.set_xlabel('time [UTC]')
         ax.set_ylabel('SNR/Hz/W  [dB]')
 
-    ax.set_title(f'SNR/Hz/W [dB] vs. time [local]\n{call2} on {band} MHz, distance {distkm} km.' )
-    ax.legend()
+    ax.set_title(f'SNR/Hz/W [dB] vs. time \n{call2} on {band} MHz.' )
+    ax.legend(title='distance [km]')
 
 def cathour(dat, tz):
     # hour of day, local time
-    dat['hod'] = [t.astimezone(timezone(tz)).hour for t in dat.t]
+    hod = [t.astimezone(timezone(tz)).hour for t in dat.t]
 
     bins = range(0, 24+6, 6) # hours of day
-    cats = cut(dat['hod'],bins)
+    cats = cut(hod,bins)
 
-    return dat, cats
+    return cats

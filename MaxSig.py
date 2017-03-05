@@ -5,9 +5,11 @@ http://wsprnet.org/drupal/downloads
 Processes and plot gigabyte .csv files containing WSPR propagation data
 
 Examples:
-./MaxSig.py w1bur ~/data/wsprspots-2017-02.tsv --c2 kk1d wa9wtk -b 7 -t 2017-02-27T00 2018-01-01T00
+./MaxSig.py w1bur ~/data/wsprspots-2017-02.tsv --c2 kk1d wa9wtk w2grk k3rwr -b 7 -t 2017-02-27T23 2018-01-01T00
 
 ./MaxSig.py w1bur ~/data/wsprspots-2017-02.tsv --c2 kk1d wa9wtk -b 3
+
+./MaxSig.py w1bur data/wspr-w1bur-2017-03-01.h5
 
 """
 from pandas import DataFrame
@@ -37,12 +39,12 @@ if __name__ == '__main__':
     p.add_argument('-o','--outfn',help='hdf5 file to dump plotted data to')
     p = p.parse_args()
 
-    try: # save time by reusing already loaded data
-        if dat.shape[0]==0: # bad read, try again
-            del dat
-        wsprplots(dat, p.callsign, p.c2, p.band, p.maxcalls, p.outfn, p.verbose)
-    except NameError: # load then plot
-        dat = readwspr(p.fn, p.callsign, p.band, p.c2, p.tlim)
-        wsprplots(dat, p.callsign, p.c2, p.band, p.maxcalls, p.outfn, p.verbose)
+#    try: # save time by reusing already loaded data
+#        if dat.shape[0]==0: # bad read, try again
+#            del dat
+#        wsprplots(dat, p.callsign, p.c2, p.band, p.maxcalls, p.outfn, p.verbose)
+#    except NameError: # load then plot
+    dat = readwspr(p.fn, p.callsign, p.band, p.c2, p.tlim)
+    wsprplots(dat, p.callsign, p.c2, p.band, p.maxcalls, p.outfn, p.verbose)
 
     show()
