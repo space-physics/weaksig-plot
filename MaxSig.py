@@ -36,7 +36,7 @@ if __name__ == '__main__':
     p.add_argument('--maxcalls',help='if more than this number of stations, do not do individual time plots to save time',type=int,default=10)
     p.add_argument('-t','--tlim',help='start stop time limites to plot',nargs=2)
     p.add_argument('-v','--verbose',action='store_true')
-    p.add_argument('-o','--outfn',help='hdf5 file to dump plotted data to')
+    p.add_argument('-o','--outfn',help='hdf5 file to dump plotted data to',default='')
     p = p.parse_args()
 
 #    try: # save time by reusing already loaded data
