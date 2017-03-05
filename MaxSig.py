@@ -15,7 +15,8 @@ Examples:
 from pandas import DataFrame
 from matplotlib.pyplot import show
 #
-from weaksig_plot import readwspr, wsprstrip,plottime
+from weaksig_plot import readwspr
+from weaksig_plot.plots import wsprstrip,plottime
 
 #fn = 'data/wsprspots-2017-02.csv'
 #fn = 'data/2017-02-23.tsv'
