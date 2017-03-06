@@ -5,24 +5,29 @@ http://wsprnet.org/drupal/downloads
 Processes and plot gigabyte .csv and .tsv files containing WSPR propagation data
 
 Examples:
-./MapSig.py w1bur ~/data/wsprspots-2017-02.tsv 
+./MapSig.py w1bur ~/data/wsprspots-2017-02.tsv wa9wtk kk1d
 
 """
+from math import cos,atan,atan2,sin,tau
 from pandas import DataFrame
 from matplotlib.pyplot import figure,show
 from mpl_toolkits.basemap import Basemap
+from geopy.distance import vincenty as vdist
+from pymap3d.vreckon import vreckon
 #
 import mlocs
 from weaksig_plot import readwspr
 
+F2h = 250 # [km] altitude of F2 layer reflection point (maximum Ne)
+
 def wsprmap(dat:DataFrame, callsign:str, call2:str, band:int, maxcalls:int, outfn, verbose:bool):
     for b in band:
         drawmap(dat,callsign,call2,b)
-        
+
 def drawmap(dat,callsign,call2,b):
     callsign = callsign.upper()
     call2 = [c.upper() for c in call2]
-    
+
     maid0 = dat.loc[dat['txcall']==callsign,'txgrid'].iat[0].strip()
     ll0 = mlocs.toLoc(maid0)
 #%%
@@ -40,14 +45,28 @@ def drawmap(dat,callsign,call2,b):
     x,y = m(ll0[1],ll0[0])
     m.plot(x,y,'o',color='limegreen',markersize=8,markerfacecolor='none')
 #%% plot others
+    station = DataFrame(index=call2,columns =['muf_fact','latlon','midlatlon'])
     for c in call2:
         rxgrid = dat.loc[dat['rxcall']==c,'rxgrid'].iat[0].strip()
-        ll = mlocs.toLoc(rxgrid)
-        x,y = m(ll[1], ll[0])
+        latlon = mlocs.toLoc(rxgrid)
+        distkm = vdist(ll0,latlon).km
+        az = (atan2(sin(latlon[1]-ll0[1])*cos(latlon[0]), cos(ll0[0])*sin(latlon[0])-sin(ll0[0])*cos(latlon[0])*cos(latlon[1]-ll0[1])) + tau) % tau
+        aoi = atan(distkm/2/F2h)
+
+        station.loc[c,'muf_fact'] = 1/cos(aoi)
+        station.loc[c,'latlon'] = latlon
+        station.loc[c,'midlatlon'] = vreckon(ll0[0],ll0[1],distkm/2,az)
+
+        x,y = m(latlon[1], latlon[0])
         m.plot(x,y,'o',color='red',markersize=8,markerfacecolor='none')
-        
+
     ax.set_title(f'WSPR {b} MHz')
-            
+#%% plot Ne bound
+    for t in dat.t.unique():
+        print(t)
+
+
+
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
