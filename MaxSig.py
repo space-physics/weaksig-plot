@@ -5,7 +5,7 @@ http://wsprnet.org/drupal/downloads
 Processes and plot gigabyte .csv files containing WSPR propagation data
 
 Examples:
-./MaxSig.py w1bur ~/data/wsprspots-2017-02.tsv --c2 kk1d wa9wtk w2grk k3rwr -b 7 -t 2017-02-27T23 2018-01-01T00
+./MaxSig.py w1bur ~/data/wsprspots-2017-02.tsv --c2 kk1d wa9wtk w2grk k3rwr -t 2017-02-27T23 2018-01-01T00
 
 ./MaxSig.py w1bur ~/data/wsprspots-2017-02.tsv --c2 kk1d wa9wtk -b 3
 
@@ -33,7 +33,7 @@ if __name__ == '__main__':
     p.add_argument('callsign',help='callsign of interest (case insensitive)')
     p.add_argument('fn',help='directory or list of .csv or .tsv files to plot')
     p.add_argument('--c2',help='second callsign(s) to plot to/from',nargs='+')
-    p.add_argument('-b','--band',help='frequency band (integer MHz) to plot [3,5,7]',nargs='+',default=[3,5,7],type=int)
+    p.add_argument('-b','--band',help='frequency band (integer MHz) to plot [1,3,5,7,10]',nargs='+',default=[1,3,5,7,10],type=int)
     p.add_argument('--maxcalls',help='if more than this number of stations, do not do individual time plots to save time',type=int,default=10)
     p.add_argument('-t','--tlim',help='start stop time limites to plot',nargs=2)
     p.add_argument('-v','--verbose',action='store_true')
