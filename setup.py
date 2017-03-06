@@ -4,7 +4,7 @@ from setuptools import setup
 # Note basemap 1.1 should be back on Pypi. 
 req = ['nose','numpy','pandas','matplotlib','seaborn',
        'sciencedates',
-       'https://downloads.sourceforge.net/project/matplotlib/matplotlib-toolkits/basemap-1.0.7/basemap-1.0.7.tar.gz',
+       'basemap',
        ]
 
 #%% install
@@ -20,4 +20,5 @@ setup(name='weaksig_plot',
       'Programming Language :: Python :: 3.6',
       ],
       install_requires=req,
+      dependency_links=['https://downloads.sourceforge.net/project/matplotlib/matplotlib-toolkits/basemap-1.0.7/basemap-1.0.7.tar.gz'],
 	  )
