@@ -21,6 +21,7 @@ The box plot give the traditional sense of distribution of variables--here also 
 program  description
 ======== ===================
 MaxSig   plots maximum signal on a frequency vs. distance "What's the strongest I'm heard at a distance and frequency?"
+MapSig   plots stations and midpoint science quantities
 ======== ===================
 
 
