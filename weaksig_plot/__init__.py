@@ -35,10 +35,10 @@ def readwspr(fn, callsign:str, band:int, call2, tlim) -> DataFrame:
             dat = read_csv(fn,
                    sep='\t',
                    index_col=False,
-                   usecols=[0,1,2,3,6,8,10],
-                   names=['t','txcall','band','snr','power','rxcall','distkm'],
-                   dtype={'t':str,'txcall':str,'band':float,'snr':int,'power':int,
-                          'rxcall':str,'distkm':int},
+                   usecols=[0,1,2,3,5,6,8,9,10],
+                   names=['t','txcall','band','snr','txgrid','power','rxcall','rxgrid','distkm'],
+                   dtype={'t':str,'txcall':str,'band':float,'snr':int,'txgrid':str,'power':int,
+                          'rxcall':str,'rxgrid':str,'distkm':int},
                    #nrows=1000)
             )
 #%% sanitization
