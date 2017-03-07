@@ -5,28 +5,29 @@ http://wsprnet.org/drupal/downloads
 Processes and plot gigabyte .csv and .tsv files containing WSPR propagation data
 
 Examples:
-./MapSig.py w1bur ~/data/wsprspots-2017-02.tsv 
+./MapSig.py w1bur ~/data/wsprspots-2017-02.tsv wa9wtk kk1d
 
 """
+from math import cos,atan
 from pandas import DataFrame
 from matplotlib.pyplot import figure,show
 from mpl_toolkits.basemap import Basemap
-#
-import mlocs
 from pymap3d.vdist import vdist
 from pymap3d.vreckon import vreckon
+#
+import mlocs
 from weaksig_plot import readwspr
+
+F2h = 250e3 # [meters] altitude of F2 layer reflection point (maximum Ne)
 
 def wsprmap(dat:DataFrame, callsign:str, call2:str, band:int, maxcalls:int, outfn, verbose:bool):
     for b in band:
-        dat = est_ne(dat)
         drawmap(dat,callsign,call2,b)
-        
-def est_ne(dat):
-    
-    
-    return dat
-        
+                
+def est_ne(dat,station):
+    pass
+ 
+
 def drawmap(dat,callsign,call2,b):
     callsign = callsign.upper()
     call2 = [c.upper() for c in call2]
@@ -48,14 +49,23 @@ def drawmap(dat,callsign,call2,b):
     x,y = m(ll0[1],ll0[0])
     m.plot(x,y,'o',color='limegreen',markersize=8,markerfacecolor='none')
 #%% plot others
+    #station = DataFrame(index=call2,columns =['muf_fact','latlon','midlatlon'])
     for c in call2:
         rxgrid = dat.loc[dat['rxcall']==c,'rxgrid'].iat[0].strip()
-        ll = mlocs.toLoc(rxgrid)
-        x,y = m(ll[1], ll[0])
+        latlon = mlocs.toLoc(rxgrid)
+        # plot this station location (by Maidenhead)
+        x,y = m(latlon[1], latlon[0])
         m.plot(x,y,'o',color='red',markersize=8,markerfacecolor='none')
-        
+#%% estimate Ne
+        distm,az = vdist(ll0[0],ll0[1],latlon[0],latlon[1])[:2]
+        aoi = atan(distm/2/F2h)
+
+        muf_fact = 1/cos(aoi)
+        # lat,lon where ray refracted (midpoint between stations)
+        midlatlon = vreckon(ll0[0],ll0[1], distm/2,az)        
+
     ax.set_title(f'WSPR {b} MHz')
-            
+
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
