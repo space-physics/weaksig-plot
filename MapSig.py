@@ -62,7 +62,10 @@ def drawmap(dat,callsign,call2,b):
 
         muf_fact = 1/cos(aoi)
         # lat,lon where ray refracted (midpoint between stations)
-        midlatlon = vreckon(ll0[0],ll0[1], distm/2,az)        
+        midlatlon = vreckon(ll0[0],ll0[1], distm/2,az)  
+        # plot midpoint Ne
+        x,y = m(midlatlon[1], midlatlon[0])
+        m.plot(x,y,'o',color='blue',markersize=6)
 
     ax.set_title(f'WSPR {b} MHz')
 
