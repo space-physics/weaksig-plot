@@ -13,11 +13,19 @@ from matplotlib.pyplot import figure,show
 from mpl_toolkits.basemap import Basemap
 #
 import mlocs
+from pymap3d.vdist import vdist
+from pymap3d.vreckon import vreckon
 from weaksig_plot import readwspr
 
 def wsprmap(dat:DataFrame, callsign:str, call2:str, band:int, maxcalls:int, outfn, verbose:bool):
     for b in band:
+        dat = est_ne(dat)
         drawmap(dat,callsign,call2,b)
+        
+def est_ne(dat):
+    
+    
+    return dat
         
 def drawmap(dat,callsign,call2,b):
     callsign = callsign.upper()
