@@ -11,7 +11,7 @@ req = ['nose','numpy','pandas','matplotlib','seaborn',
 setup(name='weaksig_plot',
       packages=['weaksig_plot'],
       author='Michael Hirsch, Ph.D.',
-      url='https://github.com/scienceopen/weaksig-plot',
+      url='https://github.com/scivision/weaksig-plot',
       classifiers=[
       'Intended Audience :: Science/Research',
       'Development Status :: 3 - Alpha',
