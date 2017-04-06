@@ -12,10 +12,9 @@ from math import cos,atan
 from pandas import DataFrame
 from matplotlib.pyplot import figure,show
 from mpl_toolkits.basemap import Basemap
-from pymap3d.vdist import vdist
-from pymap3d.vreckon import vreckon
+from pymap3d.vincenty import vdist, vreckon
 #
-import mlocs
+import maidenhead
 from weaksig_plot import readwspr
 
 F2h = 250e3 # [meters] altitude of F2 layer reflection point (maximum Ne)

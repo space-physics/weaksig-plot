@@ -5,6 +5,7 @@ from setuptools import setup
 req = ['nose','numpy','pandas','matplotlib','seaborn',
        'sciencedates','pymap3d',
        'basemap',
+       'maidenhead',
        ]
 
 #%% install
