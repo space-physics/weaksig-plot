@@ -1,25 +1,21 @@
 #!/usr/bin/env python
+req = ['nose','numpy','pandas','matplotlib','seaborn','basemap']
+pipreq=['sciencedates','pymap3d','maidenhead',]
+
+# %%
 from setuptools import setup
 
-# Note basemap 1.1 should be back on Pypi. 
-req = ['nose','numpy','pandas','matplotlib','seaborn',
-       'sciencedates','pymap3d',
-       'basemap',
-       'maidenhead',
-       ]
-
-#%% install
 setup(name='weaksig_plot',
       packages=['weaksig_plot'],
-      author='Michael Hirsch, Ph.D.',
-      url='https://github.com/scivision/weaksig-plot',
+      author = 'Michael Hirsch, Ph.D.',
+      url = 'https://github.com/scivision/weaksig-plot',
       classifiers=[
       'Intended Audience :: Science/Research',
       'Development Status :: 3 - Alpha',
       'License :: OSI Approved :: GNU Affero License',
       'Topic :: Scientific/Engineering :: Atmospheric Science',
-      'Programming Language :: Python :: 3.6',
+      'Programming Language :: Python :: 3',
       ],
-      install_requires=req,
-      dependency_links=['https://downloads.sourceforge.net/project/matplotlib/matplotlib-toolkits/basemap-1.0.7/basemap-1.0.7.tar.gz'],
+      install_requires=req+pipreq,
+#      dependency_links=['https://downloads.sourceforge.net/project/matplotlib/matplotlib-toolkits/basemap-1.0.7/basemap-1.0.7.tar.gz'],
 	  )
